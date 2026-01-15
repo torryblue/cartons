@@ -1,9 +1,7 @@
-from datetime import date
-from turtle import st
+import streamlit as st
 import pandas as pd
-from supabase import create_client
-from dotenv import load_dotenv
-import os
+from datetime import date
+from supabase import create_client, Client
 
 load_dotenv()
 
