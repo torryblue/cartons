@@ -11,9 +11,6 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-
-
-
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="📦 Cartons Live", layout="wide")
 st.title("📦 Carton Stock Management System")
@@ -52,15 +49,19 @@ def fetch_shipments():
     shipments = res.data or []
     all_items = []
     for s in shipments:
-        items_res = supabase.table("shipment_items").select("grade_id, cartons, locations(name)").eq("shipment_id", s["id"]).execute()
+        items_res = supabase.table("shipment_items") \
+        .select("grade_id, cartons, location") \
+        .eq("shipment_id", s["id"]).execute()
+
         for item in items_res.data or []:
             all_items.append({
-                "Date": s["shipment_date"],
-                "Grade": item["grade_id"],  # could map to grade name if needed
-                "Cartons": int(item["cartons"]),
-                "From": item["locations"]["name"],
-                "To": s["destination"]
-            })
+            "Date": s["shipment_date"],
+            "Grade": item["grade_id"],
+            "Cartons": int(item["cartons"]),
+            "From": item["location"],
+            "To": s["destination"]
+    })
+
     return all_items
 
 grades = fetch_grades()
