@@ -48,21 +48,24 @@ def fetch_shipments():
     res = supabase.table("shipments").select("id, shipment_date, destination").execute()
     shipments = res.data or []
     all_items = []
+
     for s in shipments:
         items_res = supabase.table("shipment_items") \
-        .select("grade_id, cartons, location") \
-        .eq("shipment_id", s["id"]).execute()
+            .select("grade_id, cartons, location") \
+            .eq("shipment_id", s["id"]).execute()
 
         for item in items_res.data or []:
             all_items.append({
-            "Date": s["shipment_date"],
-            "Grade": item["grade_id"],
-            "Cartons": int(item["cartons"]),
-            "From": item["location"],
-            "To": s["destination"]
-    })
+                "Date": s["shipment_date"],
+                # Map grade_id to actual grade name using grade_map
+                "Grade": grade_map.get(item["grade_id"], "Unknown"),
+                "Cartons": int(item["cartons"]),
+                "From": item["location"],
+                "To": s["destination"]
+            })
 
     return all_items
+
 
 grades = fetch_grades()
 locations = fetch_locations()
