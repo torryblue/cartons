@@ -173,7 +173,6 @@ elif menu == "Shipping":
 
 # ---------------- STOCK & REPORTS ----------------
 elif menu == "Stock & Reports":
-    st.header("📊 Live Stock & Reports")
 
     # ---------- TOTAL STOCK ----------
     prod = fetch_production_stock()
