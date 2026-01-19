@@ -77,6 +77,7 @@ if menu == "Production":
     cartons = st.number_input("Cartons Produced", min_value=1, step=1)
 
     if st.button("Record Production"):
+        # Map grade name back to UUID
         grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
 
         if not grade_id:
@@ -85,14 +86,14 @@ if menu == "Production":
             cartons = int(cartons)
 
             try:
-                # 1. Insert production record (unlimited same grades allowed)
+                # 1. Insert into production_log (transaction table)
                 supabase.table("production_log").insert({
                     "production_date": str(production_date),
                     "grade_id": grade_id,
-                    "cartons": cartons
+                    "cartons_produced": cartons
                 }).execute()
 
-                # 2. Ensure stock row exists
+                # 2. Ensure stock row exists (one row per grade)
                 supabase.table("production_stock").upsert({
                     "grade_id": grade_id,
                     "cartons": 0
