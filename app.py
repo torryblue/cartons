@@ -36,7 +36,7 @@ def fetch_production_stock():
     data = res.data or []
     return [{"grade": d["grades"]["name"], "cartons": int(d["cartons"])} for d in data]
 
-def fetch_storage_stock():
+def fetch_waterfalls_stock():
     res = supabase.table("stock").select("grade_id, cartons, grades(name)").execute()
     data = res.data or []
     return [{"grade": d["grades"]["name"], "cartons": int(d["cartons"])} for d in data]
@@ -114,10 +114,10 @@ if menu == "Production":
 
 # ---------------- TRANSFER ----------------
 elif menu == "Transfer":
-    st.header("🔄 Transfer Cartons (Production → Storage)")
+    st.header("🔄 Transfer Cartons (Craster → Waterfalls)")
     grade_name = st.selectbox("Grade", list(grade_map.values()))
-    from_location_name = "Production Floor"
-    to_location_name = "Storage"
+    from_location_name = "Craster"
+    to_location_name = "Waterfalls"
     cartons = st.number_input("Cartons to Transfer", min_value=1, step=1)
 
     if st.button("Transfer Stock"):
@@ -125,21 +125,21 @@ elif menu == "Transfer":
         if not grade_id:
             st.error("Selected grade not found.")
         else:
-            # Subtract from production
+            # Subtract from Craster
             stock = supabase.table("production_stock").select("cartons").eq("grade_id", grade_id).single().execute()
             current_prod = int(stock.data["cartons"]) if stock.data else 0
             if cartons > current_prod:
-                st.error(f"Not enough stock on production floor (available: {current_prod})")
+                st.error(f"Not enough stock at Craster (available: {current_prod})")
             else:
                 supabase.table("production_stock").update({"cartons": current_prod - cartons}).eq("grade_id", grade_id).execute()
-                # Add to storage
+                # Add to Waterfalls
                 storage = supabase.table("stock").select("cartons").eq("grade_id", grade_id).single().execute()
                 current_store = int(storage.data["cartons"]) if storage.data else 0
                 if storage.data:
                     supabase.table("stock").update({"cartons": current_store + cartons}).eq("grade_id", grade_id).execute()
                 else:
                     supabase.table("stock").insert({"grade_id": grade_id, "cartons": cartons}).execute()
-                st.success(f"{cartons} cartons transferred to Storage!")
+                st.success(f"{cartons} cartons transferred to Waterfalls!")
 
 # ---------------- SHIPPING ----------------
 elif menu == "Shipping":
@@ -154,7 +154,7 @@ elif menu == "Shipping":
     for i in range(count):
         st.markdown(f"**Item {i+1}**")
         grade_name = st.selectbox(f"Grade {i+1}", list(grade_map.values()), key=f"g{i}")
-        location_name = st.selectbox(f"From Location {i+1}", ["Production Floor", "Storage"], key=f"l{i}")
+        location_name = st.selectbox(f"From Location {i+1}", ["Craster", "Waterfalls"], key=f"l{i}")
         cartons = st.number_input(f"Cartons {i+1}", min_value=1, step=1)
         grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
         items.append({
@@ -171,7 +171,7 @@ elif menu == "Shipping":
         shipment_id = shipment.data[0]["id"]
         for item in items:
             # Deduct stock
-            stock_table = "production_stock" if item["location"] == "Production Floor" else "stock"
+            stock_table = "production_stock" if item["location"] == "Craster" else "stock"
             stock = supabase.table(stock_table).select("cartons").eq("grade_id", item["grade_id"]).single().execute()
             current = int(stock.data["cartons"]) if stock.data else 0
             if item["cartons"] > current:
@@ -192,24 +192,24 @@ elif menu == "Stock & Reports":
 
     # ---------- TOTAL STOCK ----------
     prod = fetch_production_stock()
-    store = fetch_storage_stock()
+    waterfalls = fetch_waterfalls_stock()
 
     prod_df = pd.DataFrame(prod) if prod else pd.DataFrame(columns=["grade", "cartons"])
-    store_df = pd.DataFrame(store) if store else pd.DataFrame(columns=["grade", "cartons"])
+    store_df = pd.DataFrame(waterfalls) if waterfalls else pd.DataFrame(columns=["grade", "cartons"])
 
-    prod_df = prod_df.rename(columns={"cartons": "production_cartons"})
-    store_df = store_df.rename(columns={"cartons": "storage_cartons"})
+    prod_df = prod_df.rename(columns={"cartons": "craster_cartons"})
+    store_df = store_df.rename(columns={"cartons": "waterfalls_cartons"})
 
     merged = pd.merge(prod_df, store_df, on="grade", how="outer").fillna(0)
-    merged["production_cartons"] = merged["production_cartons"].astype(int)
-    merged["storage_cartons"] = merged["storage_cartons"].astype(int)
-    merged["total_cartons"] = merged["production_cartons"] + merged["storage_cartons"]
+    merged["craster_cartons"] = merged["craster_cartons"].astype(int)
+    merged["waterfalls_cartons"] = merged["waterfalls_cartons"].astype(int)
+    merged["total_cartons"] = merged["craster_cartons"] + merged["waterfalls_cartons"]
 
     # Add totals row
     totals = pd.DataFrame([{
         "grade": "TOTAL",
-        "production_cartons": merged["production_cartons"].sum(),
-        "storage_cartons": merged["storage_cartons"].sum(),
+        "craster_cartons": merged["craster_cartons"].sum(),
+        "waterfalls_cartons": merged["waterfalls_cartons"].sum(),
         "total_cartons": merged["total_cartons"].sum()
     }])
     merged_display = pd.concat([merged, totals], ignore_index=True)
