@@ -72,13 +72,11 @@ location_map = {l["id"]: l["name"] for l in locations}
 if menu == "Production":
     st.header("🏭 Record Production")
 
-    # Inputs
     production_date = st.date_input("Production Date", date.today())
     grade_name = st.selectbox("Grade", list(grade_map.values()))
     cartons = st.number_input("Cartons Produced", min_value=1, step=1)
 
     if st.button("Record Production"):
-        # Map grade name back to UUID
         grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
 
         if not grade_id:
@@ -87,20 +85,20 @@ if menu == "Production":
             cartons = int(cartons)
 
             try:
-                # 1. Insert into production table (allows duplicates per grade)
-                supabase.table("production").insert({
+                # 1. Insert production record (unlimited same grades allowed)
+                supabase.table("production_log").insert({
                     "production_date": str(production_date),
                     "grade_id": grade_id,
                     "cartons": cartons
                 }).execute()
 
-                # 2. Upsert stock row (creates row if missing)
+                # 2. Ensure stock row exists
                 supabase.table("production_stock").upsert({
                     "grade_id": grade_id,
-                    "cartons": 0   # start at 0 if new, we increment next
+                    "cartons": 0
                 }, on_conflict="grade_id").execute()
 
-                # 3. Increment existing stock safely
+                # 3. Increment stock safely
                 supabase.rpc("increment_stock", {
                     "g_id": grade_id,
                     "c": cartons
