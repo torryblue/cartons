@@ -20,10 +20,11 @@ menu = st.sidebar.radio(
 )
 
 # ---------------- HELPER FUNCTIONS ----------------
-@st.cache_data
+@st.cache_data(ttl=60)  # cache expires in 60 seconds
 def fetch_grades():
     res = supabase.table("grades").select("id, name").execute()
     return res.data or []
+
 
 @st.cache_data
 def fetch_locations():
