@@ -69,32 +69,39 @@ grade_map = {g["id"]: g["name"] for g in grades}
 location_map = {l["id"]: l["name"] for l in locations}
 
 # ---------------- PRODUCTION ----------------
-if menu == "Production":
-    st.header("🏭 Record Production")
-    production_date = st.date_input("Production Date", date.today())
-    grade_name = st.selectbox("Grade", list(grade_map.values()))
-    cartons = st.number_input("Cartons Produced", min_value=1, step=1)
+if st.button("Record Production"):
+    grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
 
-    if st.button("Record Production"):
-        # Map grade name back to UUID
-        grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
-        if not grade_id:
-            st.error("Selected grade not found.")
-        else:
-            payload = {
+    if not grade_id:
+        st.error("Selected grade not found.")
+    else:
+        cartons = int(cartons)
+
+        try:
+            # 1. Always allow multiple production records per grade
+            supabase.table("production").insert({
                 "production_date": str(production_date),
                 "grade_id": grade_id,
                 "cartons": cartons
-            }
-            supabase.table("production").insert(payload).execute()
-            # Update production_stock
-            stock = supabase.table("production_stock").select("cartons").eq("grade_id", grade_id).single().execute()
-            if not stock.data:
-                supabase.table("production_stock").insert({"grade_id": grade_id, "cartons": cartons}).execute()
-            else:
-                new_stock = int(stock.data["cartons"]) + cartons
-                supabase.table("production_stock").update({"cartons": new_stock}).eq("grade_id", grade_id).execute()
+            }).execute()
+
+            # 2. Upsert stock (insert if not exists, update if exists)
+            supabase.table("production_stock").upsert({
+                "grade_id": grade_id,
+                "cartons": cartons
+            }, on_conflict="grade_id").execute()
+
+            # 3. Then increment stock
+            supabase.rpc("increment_stock", {
+                "g_id": grade_id,
+                "c": cartons
+            }).execute()
+
             st.success("Production recorded and stock updated!")
+
+        except Exception as e:
+            st.error("Failed to record production")
+            st.code(str(e))
 
 # ---------------- TRANSFER ----------------
 elif menu == "Transfer":
