@@ -208,8 +208,8 @@ elif menu == "Stock & Reports":
     # Add totals row
     totals = pd.DataFrame([{
         "grade": "TOTAL",
-        "Craster": merged["production_cartons"].sum(),
-        "Waterfalls": merged["storage_cartons"].sum(),
+        "production_cartons": merged["production_cartons"].sum(),
+        "storage_cartons": merged["storage_cartons"].sum(),
         "total_cartons": merged["total_cartons"].sum()
     }])
     merged_display = pd.concat([merged, totals], ignore_index=True)
