@@ -70,45 +70,52 @@ grade_map = {g["id"]: g["name"] for g in grades}
 location_map = {l["id"]: l["name"] for l in locations}
 
 # ---------------- PRODUCTION ----------------
-if st.button("Record Production"):
-    grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
+if menu == "Production":
+    st.header("🏭 Record Production")
 
-    if not grade_id:
-        st.error("Selected grade not found.")
-    else:
-        cartons = int(cartons)
+    production_date = st.date_input("Production Date", date.today())
+    grade_name = st.selectbox("Grade", list(grade_map.values()))
+    cartons = st.number_input("Cartons Produced", min_value=1, step=1)
 
-        try:
-            # 1. Log production
-            supabase.table("production_log").insert({
-                "production_date": str(production_date),
-                "grade_id": grade_id,
-                "cartons_produced": cartons
-            }).execute()
+    if st.button("Record Production"):
+        grade_id = next((g["id"] for g in grades if g["name"] == grade_name), None)
 
-            # 2. Ensure stock row exists (DO NOT reset cartons)
-            existing = supabase.table("production_stock") \
-                .select("cartons") \
-                .eq("grade_id", grade_id) \
-                .execute()
+        if not grade_id:
+            st.error("Selected grade not found.")
+        else:
+            cartons = int(cartons)
 
-            if not existing.data:
-                supabase.table("production_stock").insert({
+            try:
+                # 1. Log production
+                supabase.table("production_log").insert({
+                    "production_date": str(production_date),
                     "grade_id": grade_id,
-                    "cartons": 0
+                    "cartons_produced": cartons
                 }).execute()
 
-            # 3. Increment stock
-            supabase.rpc("increment_stock", {
-                "g_id": grade_id,
-                "c": cartons
-            }).execute()
+                # 2. Create stock row ONLY if missing
+                existing = supabase.table("production_stock") \
+                    .select("cartons") \
+                    .eq("grade_id", grade_id) \
+                    .execute()
 
-            st.success("✅ Production recorded and stock incremented successfully!")
+                if not existing.data:
+                    supabase.table("production_stock").insert({
+                        "grade_id": grade_id,
+                        "cartons": 0
+                    }).execute()
 
-        except Exception as e:
-            st.error("❌ Failed to record production. Check Supabase logs.")
-            st.code(str(e))
+                # 3. Increment stock
+                supabase.rpc("increment_stock", {
+                    "g_id": grade_id,
+                    "c": cartons
+                }).execute()
+
+                st.success("✅ Production recorded and stock incremented correctly!")
+
+            except Exception as e:
+                st.error("❌ Failed to record production. Check Supabase logs.")
+                st.code(str(e))
 
 
 # ---------------- TRANSFER ----------------
