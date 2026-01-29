@@ -193,6 +193,7 @@ elif menu == "Shipping":
             }).execute()
         st.success("Shipment recorded!")
 
+# ---------------- STOCK & REPORTS ----------------
 elif menu == "Stock & Reports":
 
     # ---------- TOTAL STOCK ----------
@@ -241,3 +242,21 @@ elif menu == "Stock & Reports":
 
     st.subheader("📦 Current Inventory")
     st.table(merged_display)
+
+    # ---------- SHIPMENT REPORT ----------
+    st.subheader("🚛 Shipment History")
+    shipment_data = fetch_shipments()
+    if shipment_data:
+        df_ship = pd.DataFrame(shipment_data)
+        # Add totals row for cartons
+        totals_row = pd.DataFrame([{
+            "Date": "TOTAL",
+            "Grade": "",
+            "Cartons": df_ship["Cartons"].sum(),
+            "From": "",
+            "To": ""
+        }])
+        df_ship_display = pd.concat([df_ship, totals_row], ignore_index=True)
+        st.table(df_ship_display)
+    else:
+        st.info("No shipments recorded yet.")
