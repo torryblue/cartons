@@ -193,7 +193,6 @@ elif menu == "Shipping":
             }).execute()
         st.success("Shipment recorded!")
 
-# ---------------- STOCK & REPORTS ----------------
 elif menu == "Stock & Reports":
 
     # ---------- TOTAL STOCK ----------
@@ -211,32 +210,34 @@ elif menu == "Stock & Reports":
     merged["waterfalls_cartons"] = merged["waterfalls_cartons"].astype(int)
     merged["total_cartons"] = merged["craster_cartons"] + merged["waterfalls_cartons"]
 
-    # Add totals row
-    totals = pd.DataFrame([{
-        "grade": "TOTAL",
-        "craster_cartons": merged["craster_cartons"].sum(),
-        "waterfalls_cartons": merged["waterfalls_cartons"].sum(),
-        "total_cartons": merged["total_cartons"].sum()
+    # ---------------- SPLIT HESSIAN VS NORMAL ----------------
+    hessian_df = merged[merged["grade"].str.lower().str.startswith("hessian")]
+    normal_df = merged[~merged["grade"].str.lower().str.startswith("hessian")]
+
+    # ---------------- NORMAL TOTALS ----------------
+    normal_totals = pd.DataFrame([{
+        "grade": "TOTAL (NON-HESSIAN)",
+        "craster_cartons": normal_df["craster_cartons"].sum(),
+        "waterfalls_cartons": normal_df["waterfalls_cartons"].sum(),
+        "total_cartons": normal_df["total_cartons"].sum()
     }])
-    merged_display = pd.concat([merged, totals], ignore_index=True)
+
+    # ---------------- HESSIAN TOTALS ----------------
+    hessian_totals = pd.DataFrame([{
+        "grade": "TOTAL (HESSIAN)",
+        "craster_cartons": hessian_df["craster_cartons"].sum(),
+        "waterfalls_cartons": hessian_df["waterfalls_cartons"].sum(),
+        "total_cartons": hessian_df["total_cartons"].sum()
+    }])
+
+    # ---------------- DISPLAY TABLE ----------------
+    merged_display = pd.concat([
+        normal_df,
+        normal_totals,
+        pd.DataFrame([{"grade": "", "craster_cartons": "", "waterfalls_cartons": "", "total_cartons": ""}]),  # spacer
+        hessian_df,
+        hessian_totals
+    ], ignore_index=True)
 
     st.subheader("📦 Current Inventory")
     st.table(merged_display)
-
-    # ---------- SHIPMENT REPORT ----------
-    st.subheader("🚛 Shipment History")
-    shipment_data = fetch_shipments()
-    if shipment_data:
-        df_ship = pd.DataFrame(shipment_data)
-        # Add totals row for cartons
-        totals_row = pd.DataFrame([{
-            "Date": "TOTAL",
-            "Grade": "",
-            "Cartons": df_ship["Cartons"].sum(),
-            "From": "",
-            "To": ""
-        }])
-        df_ship_display = pd.concat([df_ship, totals_row], ignore_index=True)
-        st.table(df_ship_display)
-    else:
-        st.info("No shipments recorded yet.")
