@@ -3,6 +3,15 @@ import pandas as pd
 from datetime import date
 from supabase import create_client, Client
 
+# ---------------- PAGE LOCK CONFIG ----------------
+LOCKED_PAGES = ["Production", "Transfer", "Shipping"]
+PAGE_PASSWORD = "3001"
+
+if "unlocked_pages" not in st.session_state:
+    st.session_state.unlocked_pages = set()
+
+
+
 # ---------------- SUPABASE CLIENT ----------------
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -18,6 +27,24 @@ menu = st.sidebar.radio(
     ["Production", "Transfer", "Shipping", "Stock & Reports"],
     index=3  # make Stock & Reports landing page
 )
+#-------------------Page Lock-----------------------
+def require_password(page_name):
+    if page_name in st.session_state.unlocked_pages:
+        return True
+
+    st.warning(f"🔒 {page_name} page is locked")
+    pwd = st.text_input("Enter password", type="password")
+
+    if st.button("Unlock"):
+        if pwd == PAGE_PASSWORD:
+            st.session_state.unlocked_pages.add(page_name)
+            st.success("✅ Page unlocked")
+            st.rerun()
+        else:
+            st.error("❌ Incorrect password")
+
+    return False
+
 
 # ---------------- HELPER FUNCTIONS ----------------
 @st.cache_data(ttl=60)  # cache expires in 60 seconds
@@ -71,6 +98,8 @@ location_map = {l["id"]: l["name"] for l in locations}
 
 # ---------------- PRODUCTION ----------------
 if menu == "Production":
+    if not require_password("Production"):
+        st.stop()
     st.header("🏭 Record Production")
 
     production_date = st.date_input("Production Date", date.today())
@@ -120,6 +149,8 @@ if menu == "Production":
 
 # ---------------- TRANSFER ----------------
 elif menu == "Transfer":
+    if not require_password("Transfer"):
+        st.stop()
     st.header("🔄 Transfer Cartons (Craster → Waterfalls)")
     grade_name = st.selectbox("Grade", list(grade_map.values()))
     from_location_name = "Craster"
@@ -149,6 +180,9 @@ elif menu == "Transfer":
 
 # ---------------- SHIPPING ----------------
 elif menu == "Shipping":
+    if not require_password("Shipping"):
+        st.stop()
+
     st.header("🚚 Record Shipment")
     shipment_date = st.date_input("Shipment Date", date.today())
     destination = st.text_input("Destination")
