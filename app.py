@@ -230,7 +230,9 @@ elif menu == "Shipping":
 # ---------------- STOCK & REPORTS ----------------
 elif menu == "Stock & Reports":
 
-    # ---------- TOTAL STOCK ----------
+    st.header("📊 Stock & Reports")
+
+    # ---------- FETCH STOCK ----------
     prod = fetch_production_stock()
     waterfalls = fetch_waterfalls_stock()
 
@@ -241,48 +243,91 @@ elif menu == "Stock & Reports":
     store_df = store_df.rename(columns={"cartons": "waterfalls_cartons"})
 
     merged = pd.merge(prod_df, store_df, on="grade", how="outer").fillna(0)
+
     merged["craster_cartons"] = merged["craster_cartons"].astype(int)
     merged["waterfalls_cartons"] = merged["waterfalls_cartons"].astype(int)
+
     merged["total_cartons"] = merged["craster_cartons"] + merged["waterfalls_cartons"]
 
-    # ---------------- SPLIT HESSIAN VS NORMAL ----------------
-    hessian_df = merged[merged["grade"].str.lower().str.startswith("hessian")]
-    normal_df = merged[~merged["grade"].str.lower().str.startswith("hessian")]
-
-    # ---------------- NORMAL TOTALS ----------------
-    normal_totals = pd.DataFrame([{
-        "grade": "TOTAL (NON-HESSIAN)",
-        "craster_cartons": normal_df["craster_cartons"].sum(),
-        "waterfalls_cartons": normal_df["waterfalls_cartons"].sum(),
-        "total_cartons": normal_df["total_cartons"].sum()
-    }])
-
-    # ---------------- HESSIAN TOTALS ----------------
-    hessian_totals = pd.DataFrame([{
-        "grade": "TOTAL (HESSIAN)",
-        "craster_cartons": hessian_df["craster_cartons"].sum(),
-        "waterfalls_cartons": hessian_df["waterfalls_cartons"].sum(),
-        "total_cartons": hessian_df["total_cartons"].sum()
-    }])
-
-    # ---------------- DISPLAY TABLE ----------------
-    merged_display = pd.concat([
-        normal_df,
-        normal_totals,
-        pd.DataFrame([{"grade": "", "craster_cartons": "", "waterfalls_cartons": "", "total_cartons": ""}]),  # spacer
-        hessian_df,
-        hessian_totals
-    ], ignore_index=True)
-
     st.subheader("📦 Current Inventory")
-    st.table(merged_display)
+
+    # ---------- EDIT MODE ----------
+    if "edit_mode" not in st.session_state:
+        st.session_state.edit_mode = False
+
+    if not st.session_state.edit_mode:
+
+        st.table(merged)
+
+        st.subheader("🔒 Enable Edit Mode")
+        password = st.text_input("Enter password to edit stock", type="password")
+
+        if st.button("Enable Editing"):
+            if password == "3001":
+                st.session_state.edit_mode = True
+                st.success("Edit mode enabled")
+                st.rerun()
+            else:
+                st.error("Incorrect password")
+
+    else:
+
+        st.warning("⚠ You are in EDIT MODE")
+
+        edited_df = st.data_editor(
+            merged,
+            num_rows="dynamic",  # allows inserting rows
+            use_container_width=True
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button("💾 Save Changes"):
+                try:
+
+                    for _, row in edited_df.iterrows():
+
+                        grade_name = row["grade"]
+                        craster = int(row["craster_cartons"])
+                        waterfalls = int(row["waterfalls_cartons"])
+
+                        grade_id = next(
+                            (g["id"] for g in grades if g["name"] == grade_name),
+                            None
+                        )
+
+                        if grade_id:
+
+                            # Update Craster stock
+                            supabase.table("production_stock").update({
+                                "cartons": craster
+                            }).eq("grade_id", grade_id).execute()
+
+                            # Update Waterfalls stock
+                            supabase.table("stock").update({
+                                "cartons": waterfalls
+                            }).eq("grade_id", grade_id).execute()
+
+                    st.success("✅ Database updated successfully!")
+
+                except Exception as e:
+                    st.error("Failed to update database")
+                    st.code(str(e))
+
+        with col2:
+            if st.button("🔒 Exit Edit Mode"):
+                st.session_state.edit_mode = False
+                st.rerun()
 
     # ---------- SHIPMENT REPORT ----------
     st.subheader("🚛 Shipment History")
+
     shipment_data = fetch_shipments()
+
     if shipment_data:
         df_ship = pd.DataFrame(shipment_data)
-        # Add totals row for cartons
+
         totals_row = pd.DataFrame([{
             "Date": "TOTAL",
             "Grade": "",
@@ -290,7 +335,10 @@ elif menu == "Stock & Reports":
             "From": "",
             "To": ""
         }])
+
         df_ship_display = pd.concat([df_ship, totals_row], ignore_index=True)
-        st.table(df_ship_display)
+
+        st.dataframe(df_ship_display, use_container_width=True)
+
     else:
         st.info("No shipments recorded yet.")
