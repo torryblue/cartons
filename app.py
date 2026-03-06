@@ -249,7 +249,17 @@ elif menu == "Stock & Reports":
 
     merged["total_cartons"] = merged["craster_cartons"] + merged["waterfalls_cartons"]
 
-    st.subheader("📦 Current Inventory")
+    # ---------- Add Unit Mass Columns ----------
+    if "craster_unit_kg" not in merged.columns:
+        merged["craster_unit_kg"] = 0.0
+    if "waterfalls_unit_kg" not in merged.columns:
+        merged["waterfalls_unit_kg"] = 0.0
+
+    # Calculate total mass dynamically
+    merged["craster_total_kg"] = merged["craster_cartons"] * merged["craster_unit_kg"]
+    merged["waterfalls_total_kg"] = merged["waterfalls_cartons"] * merged["waterfalls_unit_kg"]
+
+    st.subheader("📦 Current Inventory (with Mass)")
 
     # ---------- EDIT MODE ----------
     if "edit_mode" not in st.session_state:
@@ -280,17 +290,22 @@ elif menu == "Stock & Reports":
             use_container_width=True
         )
 
+        # Recalculate total mass dynamically after edits
+        edited_df["craster_total_kg"] = edited_df["craster_cartons"] * edited_df["craster_unit_kg"]
+        edited_df["waterfalls_total_kg"] = edited_df["waterfalls_cartons"] * edited_df["waterfalls_unit_kg"]
+
         col1, col2 = st.columns(2)
 
         with col1:
             if st.button("💾 Save Changes"):
                 try:
-
                     for _, row in edited_df.iterrows():
 
                         grade_name = row["grade"]
                         craster = int(row["craster_cartons"])
                         waterfalls = int(row["waterfalls_cartons"])
+                        craster_unit = float(row["craster_unit_kg"])
+                        waterfalls_unit = float(row["waterfalls_unit_kg"])
 
                         grade_id = next(
                             (g["id"] for g in grades if g["name"] == grade_name),
@@ -301,12 +316,14 @@ elif menu == "Stock & Reports":
 
                             # Update Craster stock
                             supabase.table("production_stock").update({
-                                "cartons": craster
+                                "cartons": craster,
+                                "unit_mass_kg": craster_unit
                             }).eq("grade_id", grade_id).execute()
 
                             # Update Waterfalls stock
                             supabase.table("stock").update({
-                                "cartons": waterfalls
+                                "cartons": waterfalls,
+                                "unit_mass_kg": waterfalls_unit
                             }).eq("grade_id", grade_id).execute()
 
                     st.success("✅ Database updated successfully!")
