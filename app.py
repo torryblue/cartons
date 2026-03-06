@@ -246,7 +246,6 @@ elif menu == "Stock & Reports":
 
     merged["craster_cartons"] = merged["craster_cartons"].astype(int)
     merged["waterfalls_cartons"] = merged["waterfalls_cartons"].astype(int)
-
     merged["total_cartons"] = merged["craster_cartons"] + merged["waterfalls_cartons"]
 
     # ---------- Add Unit Mass Columns ----------
@@ -261,13 +260,50 @@ elif menu == "Stock & Reports":
 
     st.subheader("📦 Current Inventory (with Mass)")
 
+    # ---------- SPLIT HESSIAN VS NORMAL ----------
+    hessian_df = merged[merged["grade"].str.lower().str.startswith("hessian")]
+    normal_df = merged[~merged["grade"].str.lower().str.startswith("hessian")]
+
+    # ---------- NORMAL TOTALS ----------
+    normal_totals = pd.DataFrame([{
+        "grade": "TOTAL (NON-HESSIAN)",
+        "craster_cartons": normal_df["craster_cartons"].sum(),
+        "waterfalls_cartons": normal_df["waterfalls_cartons"].sum(),
+        "total_cartons": normal_df["total_cartons"].sum(),
+        "craster_unit_kg": "",
+        "craster_total_kg": normal_df["craster_total_kg"].sum(),
+        "waterfalls_unit_kg": "",
+        "waterfalls_total_kg": normal_df["waterfalls_total_kg"].sum()
+    }])
+
+    # ---------- HESSIAN TOTALS ----------
+    hessian_totals = pd.DataFrame([{
+        "grade": "TOTAL (HESSIAN)",
+        "craster_cartons": hessian_df["craster_cartons"].sum(),
+        "waterfalls_cartons": hessian_df["waterfalls_cartons"].sum(),
+        "total_cartons": hessian_df["total_cartons"].sum(),
+        "craster_unit_kg": "",
+        "craster_total_kg": hessian_df["craster_total_kg"].sum(),
+        "waterfalls_unit_kg": "",
+        "waterfalls_total_kg": hessian_df["waterfalls_total_kg"].sum()
+    }])
+
     # ---------- EDIT MODE ----------
     if "edit_mode" not in st.session_state:
         st.session_state.edit_mode = False
 
     if not st.session_state.edit_mode:
 
-        st.table(merged)
+        merged_display = pd.concat([
+            normal_df,
+            normal_totals,
+            pd.DataFrame([{"grade": "", "craster_cartons": "", "waterfalls_cartons": "", "total_cartons": "",
+                           "craster_unit_kg": "", "craster_total_kg": "", "waterfalls_unit_kg": "", "waterfalls_total_kg": ""}]),  # spacer
+            hessian_df,
+            hessian_totals
+        ], ignore_index=True)
+
+        st.table(merged_display)
 
         st.subheader("🔒 Enable Edit Mode")
         password = st.text_input("Enter password to edit stock", type="password")
@@ -313,7 +349,6 @@ elif menu == "Stock & Reports":
                         )
 
                         if grade_id:
-
                             # Update Craster stock
                             supabase.table("production_stock").update({
                                 "cartons": craster,
