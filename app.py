@@ -251,13 +251,13 @@ elif menu == "Stock & Reports":
 
     # ---------- Add Unit Mass Columns ----------
     if "craster_unit_kg" not in merged.columns:
-        merged["craster_unit_kg"] = 0.0
+        merged["craster_unit_kg"] = 0
     if "waterfalls_unit_kg" not in merged.columns:
-        merged["waterfalls_unit_kg"] = 0.0
+        merged["waterfalls_unit_kg"] = 0
 
-    # Calculate total mass dynamically
-    merged["craster_total_kg"] = merged["craster_cartons"] * merged["craster_unit_kg"]
-    merged["waterfalls_total_kg"] = merged["waterfalls_cartons"] * merged["waterfalls_unit_kg"]
+    # Calculate total mass dynamically as integers
+    merged["craster_total_kg"] = (merged["craster_cartons"] * merged["craster_unit_kg"]).astype(int)
+    merged["waterfalls_total_kg"] = (merged["waterfalls_cartons"] * merged["waterfalls_unit_kg"]).astype(int)
 
     st.subheader("📦 Current Inventory (with Mass)")
 
@@ -286,13 +286,13 @@ elif menu == "Stock & Reports":
 
         edited_df = st.data_editor(
             merged,
-            num_rows="dynamic",  # allows inserting rows
+            num_rows="dynamic",
             use_container_width=True
         )
 
-        # Recalculate total mass dynamically after edits
-        edited_df["craster_total_kg"] = edited_df["craster_cartons"] * edited_df["craster_unit_kg"]
-        edited_df["waterfalls_total_kg"] = edited_df["waterfalls_cartons"] * edited_df["waterfalls_unit_kg"]
+        # Recalculate total mass dynamically as integers
+        edited_df["craster_total_kg"] = (edited_df["craster_cartons"] * edited_df["craster_unit_kg"]).astype(int)
+        edited_df["waterfalls_total_kg"] = (edited_df["waterfalls_cartons"] * edited_df["waterfalls_unit_kg"]).astype(int)
 
         col1, col2 = st.columns(2)
 
@@ -304,8 +304,8 @@ elif menu == "Stock & Reports":
                         grade_name = row["grade"]
                         craster = int(row["craster_cartons"])
                         waterfalls = int(row["waterfalls_cartons"])
-                        craster_unit = float(row["craster_unit_kg"])
-                        waterfalls_unit = float(row["waterfalls_unit_kg"])
+                        craster_unit = int(row["craster_unit_kg"])
+                        waterfalls_unit = int(row["waterfalls_unit_kg"])
 
                         grade_id = next(
                             (g["id"] for g in grades if g["name"] == grade_name),
